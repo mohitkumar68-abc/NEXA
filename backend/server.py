@@ -1,17 +1,29 @@
 from flask import Flask, request, jsonify
 import os
 import requests
+import json
 
 app = Flask(__name__)
 
-conversation = []
+MEMORY_FILE = "memory.json"
 
 SYSTEM_PROMPT = """
 You are NEXA, Mohit's personal AI assistant.
 Always talk to Mohit in simple Hindi/Hinglish.
 Be friendly, helpful, and explain things step-by-step.
-Remember useful information from the current conversation.
+Use the conversation history to remember useful information.
 """
+
+def load_memory():
+    try:
+        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_memory(memory):
+    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(memory, f, ensure_ascii=False, indent=2)
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -21,7 +33,9 @@ def chat():
     if not message:
         return jsonify({"error": "Message required"}), 400
 
-    conversation.append({
+    memory = load_memory()
+
+    memory.append({
         "role": "user",
         "content": message
     })
@@ -31,7 +45,7 @@ def chat():
             "role": "system",
             "content": SYSTEM_PROMPT
         }
-    ] + conversation
+    ] + memory
 
     try:
         response = requests.post(
@@ -54,20 +68,17 @@ def chat():
 
         reply = result["output"][0]["content"][0]["text"]
 
-        conversation.append({
+        memory.append({
             "role": "assistant",
             "content": reply
         })
 
-        return jsonify({
-            "reply": reply
-        })
+        save_memory(memory)
+
+        return jsonify({"reply": reply})
 
     except Exception as e:
-        return jsonify({
-            "error": str(e)
-        }), 500
-
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
