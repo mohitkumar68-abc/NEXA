@@ -73,7 +73,7 @@ def chat():
             if not response.ok:
                 return jsonify(result), response.status_code
 
-            reply = result["output"][0]["content"][0]["text"]
+            reply = result.get("output_text", "")
 
             memory.append({
                 "role": "assistant",
